@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣物產記憶配對挑戰</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gameBg: '#0f172a', // 深藍偏黑背景
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        /* 3D 翻牌效果 */
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+        .preserve-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+        
+        /* 避免手機雙擊縮放 */
+        .card-click-area {
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen text-slate-100 flex flex-col justify-between p-4 md:p-6 overflow-hidden selection:bg-pink-500 selection:text-white">
+
+    <!-- 頂部標題區 -->
+    <header class="w-full max-w-7xl mx-auto text-center flex-shrink-0">
+        <h1 class="text-3xl md:text-5xl font-black tracking-wider bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 bg-clip-text text-transparent drop-shadow-sm">
+            台灣風情 · 物產配對戰
+        </h1>
+        <p class="text-[10px] md:text-xs text-slate-400 mt-1 tracking-widest uppercase">
+            將台灣縣市地名與在地知名物產完美配對 · 考驗你的記憶與常識！
+        </p>
+    </header>
+
+    <!-- 遊戲主要控制面板與看板 -->
+    <main class="w-full max-w-7xl mx-auto flex flex-col items-center justify-center gap-4 md:gap-6 flex-grow my-2">
+        
+        <!-- 狀態數據顯示 -->
+        <div class="grid grid-cols-3 gap-2 md:gap-4 w-full max-w-md bg-slate-800/80 backdrop-blur-md p-2 md:p-3 rounded-2xl border border-slate-700/50 shadow-2xl flex-shrink-0">
+            <!-- 時間 -->
+            <div class="flex flex-col items-center justify-center p-1.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span class="text-[10px] md:text-xs text-slate-400 font-medium">時間</span>
+                <span id="timer" class="text-lg md:text-2xl font-bold font-mono text-emerald-400">00:00</span>
+            </div>
+            <!-- 步數 -->
+            <div class="flex flex-col items-center justify-center p-1.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span class="text-[10px] md:text-xs text-slate-400 font-medium">翻牌次數</span>
+                <span id="moves" class="text-lg md:text-2xl font-bold font-mono text-cyan-400">0</span>
+            </div>
+            <!-- 配對進度 -->
+            <div class="flex flex-col items-center justify-center p-1.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span class="text-[10px] md:text-xs text-slate-400 font-medium">配對進度</span>
+                <span id="progress" class="text-lg md:text-2xl font-bold font-mono text-pink-400">0 / 10</span>
+            </div>
+        </div>
+
+        <!-- 卡牌遊戲盤 (10 欄、2 列，高佔比設計，適配 19:10 螢幕) -->
+        <div id="game-board" class="grid grid-cols-10 grid-rows-2 gap-2 md:gap-4 w-full h-[52vh] md:h-[58vh] bg-slate-900/40 p-3 md:p-5 rounded-3xl border border-slate-800/80 shadow-inner perspective-1000 flex-shrink-0">
+            <!-- 卡牌會由 JS 動態生成插入 -->
+        </div>
+
+        <!-- 輔助與重玩按鈕 -->
+        <div class="flex items-center gap-4 flex-shrink-0">
+            <button id="btn-sound" class="p-2.5 md:p-3 bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all rounded-xl border border-slate-700 shadow-md flex items-center justify-center text-slate-300" title="切換音效">
+                <!-- 預設音效開啟圖示 -->
+                <svg id="sound-on-icon" class="w-5 h-5 md:w-6 md:h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                <svg id="sound-off-icon" class="w-5 h-5 md:w-6 md:h-6 text-rose-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+            </button>
+            <button id="btn-restart" class="px-5 py-2.5 md:px-6 md:py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 active:scale-95 font-bold rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 text-sm md:text-base">
+                <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15H19M9 5a9 9 0 010 18v-1.5m3-3h.01" /></svg>
+                重新開始
+            </button>
+        </div>
+    </main>
+
+    <!-- 歷史紀錄面板 (新增最高得分) -->
+    <footer class="w-full max-w-xl mx-auto bg-slate-800/30 border border-slate-800/50 rounded-2xl p-3 text-center text-slate-400 text-[10px] md:text-xs flex-shrink-0">
+        <div class="flex justify-around items-center text-slate-400">
+            <div>🏆 最佳時間: <span id="best-time" class="font-bold text-slate-200 font-mono">--:--</span></div>
+            <div class="h-3 w-[1px] bg-slate-800"></div>
+            <div>⚡️ 最少步數: <span id="best-moves" class="font-bold text-slate-200 font-mono">--</span></div>
+            <div class="h-3 w-[1px] bg-slate-800"></div>
+            <div>🌟 最高得分: <span id="best-score" class="font-bold text-yellow-400 font-mono">--</span></div>
+        </div>
+    </footer>
+
+    <!-- 勝利通關彈出視窗 -->
+    <div id="victory-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700 p-8 rounded-3xl max-w-sm w-11/12 text-center shadow-2xl transform scale-90 transition-transform duration-300 relative overflow-hidden">
+            <!-- 裝飾背景光芒 -->
+            <div class="absolute -top-12 -left-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-12 -right-12 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl"></div>
+
+            <div class="text-6xl mb-4 animate-bounce">🍊</div>
+            <h2 class="text-3xl font-black bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">全數配對成功！</h2>
+            <p class="text-slate-300 mt-2 text-sm">你對台灣各地的特色物產瞭若指掌！</p>
+            
+            <!-- 數據統計 (新增分數與評級展示) -->
+            <div class="my-6 space-y-3 bg-slate-950/50 p-4 rounded-2xl border border-slate-800 text-left">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">⏱️ 消耗時間：</span>
+                    <span id="final-time" class="font-bold text-emerald-400 text-lg font-mono">00:00</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">👣 總共步數：</span>
+                    <span id="final-moves" class="font-bold text-cyan-400 text-lg font-mono">0</span>
+                </div>
+                <div class="h-[1px] bg-slate-800/60 my-1"></div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 text-sm">✨ 綜合得分：</span>
+                    <div class="flex items-center gap-2">
+                        <span id="final-score" class="font-black text-2xl text-yellow-400 font-mono">0</span>
+                        <span id="final-rating" class="px-2.5 py-0.5 rounded-md font-black text-sm shadow-sm transition-all duration-300">C</span>
+                    </div>
+                </div>
+                <div id="new-record-badge" class="hidden text-center text-xs py-1 bg-yellow-500/20 text-yellow-300 font-bold rounded-lg border border-yellow-500/30 animate-pulse">
+                    🔥 恭喜！創下新歷史紀錄！
+                </div>
+            </div>
+
+            <button id="btn-play-again" class="w-full py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 text-white font-extrabold rounded-2xl shadow-lg hover:shadow-orange-500/20 active:scale-98 transition-all">
+                再挑戰一次
+            </button>
+        </div>
+    </div>
+
+    <!-- 五彩碎紙 Canvas 用於勝利動畫 -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-40 w-full h-full"></canvas>
+
+    <!-- 核心遊戲邏輯 JavaScript -->
+    <script>
+        // --- 1. 音效控制 (Web Audio API) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let soundEnabled = true;
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'flip') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'match') {
+                const osc2 = audioCtx.createOscillator();
+                const gain2 = audioCtx.createGain();
+                osc2.connect(gain2);
+                gain2.connect(audioCtx.destination);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.3);
+
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(783.99, now + 0.04); // G5
+                gain2.gain.setValueAtTime(0.15, now);
+                gain2.gain.linearRampToValueAtTime(0, now + 0.35);
+
+                osc.start(now);
+                osc.stop(now + 0.3);
+                osc2.start(now);
+                osc2.stop(now + 0.35);
+            } else if (type === 'mismatch') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.linearRampToValueAtTime(120, now + 0.25);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'victory') {
+                const melody = [523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50];
+                melody.forEach((freq, index) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g);
+                    g.connect(audioCtx.destination);
+                    o.type = 'triangle';
+                    o.frequency.setValueAtTime(freq, now + index * 0.08);
+                    g.gain.setValueAtTime(0.12, now + index * 0.08);
+                    g.gain.linearRampToValueAtTime(0, now + index * 0.08 + 0.15);
+                    o.start(now + index * 0.08);
+                    o.stop(now + index * 0.08 + 0.15);
+                });
+            }
+        }
+
+        // --- 2. 台灣物產與地名資料庫 (地名文字 + 精緻 SVG 代碼) ---
+        const TAIWAN_SPECIALTIES = [
+            {
+                matchId: 0,
+                cityName: '宜蘭',
+                productName: '三星蔥',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <path d="M20,85 Q50,80 80,85" stroke="#4a5568" stroke-width="3" fill="none" />
+                        <path d="M40,85 L42,50 Q45,15 25,5 Q48,22 46,50 L45,85" fill="#48bb78" />
+                        <path d="M40,85 L42,50 L45,50 L45,85" fill="#edf2f7" />
+                        <path d="M55,85 L53,45 Q50,10 68,8 Q53,25 50,45 L48,85" fill="#38a169" />
+                        <path d="M55,85 L53,45 L48,45 L48,85" fill="#e2e8f0" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 1,
+                cityName: '屏東',
+                productName: '蓮霧',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <path d="M35,30 C35,18 65,18 65,30 C65,45 82,75 70,85 C58,92 42,92 30,85 C18,75 35,45 35,30 Z" fill="#e53e3e" />
+                        <path d="M40,35 C40,30 45,30 45,35 C45,50 35,72 32,78" stroke="#feb2b2" stroke-width="3" stroke-linecap="round" fill="none" />
+                        <line x1="50" y1="22" x2="50" y2="10" stroke="#4a5568" stroke-width="4" stroke-linecap="round" />
+                        <path d="M50,15 Q68,8 60,20 Z" fill="#48bb78" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 2,
+                cityName: '嘉義',
+                productName: '虱目魚',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <defs>
+                            <linearGradient id="fishGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#cbd5e0" />
+                                <stop offset="50%" stop-color="#edf2f7" />
+                                <stop offset="100%" stop-color="#718096" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M45,34 Q55,18 60,32 Z" fill="#4a5568" />
+                        <path d="M45,66 Q55,82 60,68 Z" fill="#4a5568" />
+                        <path d="M15,50 L5,32 Q10,50 5,68 Z" fill="#4a5568" />
+                        <path d="M15,50 Q45,22 85,50 Q45,78 15,50" fill="url(#fishGrad)" stroke="#4a5568" stroke-width="1.5" />
+                        <circle cx="72" cy="45" r="4.5" fill="#000" />
+                        <circle cx="73.5" cy="43.5" r="1.5" fill="#fff" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 3,
+                cityName: '台南',
+                productName: '芒果乾',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <path d="M15,65 C22,22 78,18 85,50 C65,78 32,82 15,65 Z" fill="#dd6b20" stroke="#7b341e" stroke-width="2" />
+                        <path d="M30,60 Q50,45 75,35" stroke="#ed8936" stroke-width="4" stroke-linecap="round" fill="none" />
+                        <path d="M25,50 Q45,35 70,25" stroke="#f6ad55" stroke-width="3" stroke-linecap="round" fill="none" />
+                        <path d="M40,70 Q60,55 80,45" stroke="#ed8936" stroke-width="3" stroke-linecap="round" fill="none" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 4,
+                cityName: '台東',
+                productName: '柴魚片',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <path d="M20,60 Q35,38 62,50 T82,32 T65,65 Z" fill="#b7791f" opacity="0.8" />
+                        <path d="M28,72 Q55,52 78,65 T88,52 T75,82 Z" fill="#d69e2e" opacity="0.9" />
+                        <path d="M15,45 Q40,28 55,45 T75,28" stroke="#744210" stroke-width="3" fill="none" stroke-linecap="round" />
+                        <path d="M25,55 Q50,32 65,55 T85,38" stroke="#975a16" stroke-width="3" fill="none" stroke-linecap="round" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 5,
+                cityName: '新北',
+                productName: '陶瓷',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <defs>
+                            <linearGradient id="ceramicGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#f7fafc" />
+                                <stop offset="50%" stop-color="#edf2f7" />
+                                <stop offset="100%" stop-color="#cbd5e0" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M35,20 C35,15 65,15 65,20 C65,26 55,30 55,40 C55,55 75,60 75,76 C75,85 25,85 25,76 C25,60 45,55 45,40 C45,30 35,26 35,20 Z" fill="url(#ceramicGrad)" stroke="#4a5568" stroke-width="2" />
+                        <path d="M45,40 Q50,43 55,40" stroke="#3182ce" stroke-width="3" fill="none" />
+                        <path d="M30,68 Q50,75 70,68" stroke="#2b6cb0" stroke-width="4" fill="none" />
+                        <path d="M35,75 Q50,80 65,75" stroke="#3182ce" stroke-width="3" fill="none" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 6,
+                cityName: '南投',
+                productName: '造紙',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <rect x="25" y="18" width="50" height="64" rx="3" fill="#fefcbf" stroke="#744210" stroke-width="3" />
+                        <line x1="35" y1="35" x2="65" y2="35" stroke="#ecc94b" stroke-width="4" stroke-linecap="round" />
+                        <line x1="35" y1="50" x2="55" y2="50" stroke="#ecc94b" stroke-width="4" stroke-linecap="round" />
+                        <line x1="35" y1="65" x2="60" y2="65" stroke="#ecc94b" stroke-width="4" stroke-linecap="round" />
+                        <rect x="12" y="45" width="13" height="10" rx="2" fill="#975a16" />
+                        <rect x="75" y="45" width="13" height="10" rx="2" fill="#975a16" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 7,
+                cityName: '高雄',
+                productName: '油紙傘',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <path d="M15,55 C15,28 50,12 85,55 C85,65 75,70 50,70 C25,70 15,65 15,55 Z" fill="#fc8181" stroke="#9b2c2c" stroke-width="1.5" />
+                        <line x1="50" y1="35" x2="15" y2="55" stroke="#fee2e2" stroke-width="1.5" />
+                        <line x1="50" y1="35" x2="30" y2="65" stroke="#fee2e2" stroke-width="1.5" />
+                        <line x1="50" y1="35" x2="50" y2="70" stroke="#fee2e2" stroke-width="1.5" />
+                        <line x1="50" y1="35" x2="70" y2="65" stroke="#fee2e2" stroke-width="1.5" />
+                        <line x1="50" y1="35" x2="85" y2="55" stroke="#fee2e2" stroke-width="1.5" />
+                        <line x1="50" y1="35" x2="50" y2="85" stroke="#d69e2e" stroke-width="4" stroke-linecap="round" />
+                        <path d="M46,85 C46,88 54,88 54,85" stroke="#d69e2e" stroke-width="4" stroke-linecap="round" fill="none" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 8,
+                cityName: '新竹',
+                productName: '米粉',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <path d="M20,50 C20,76 80,76 80,50 Z" fill="#edf2f7" stroke="#4a5568" stroke-width="3" />
+                        <path d="M35,74 L65,74" stroke="#cbd5e0" stroke-width="6" stroke-linecap="round" />
+                        <path d="M25,50 Q35,25 45,50 Q55,25 65,50 Q75,25 75,50" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" />
+                        <path d="M28,46 Q42,18 53,46 Q65,18 72,46" fill="none" stroke="#e2e8f0" stroke-width="2.5" stroke-linecap="round" />
+                        <line x1="12" y1="38" x2="88" y2="24" stroke="#a0522d" stroke-width="4.5" stroke-linecap="round" />
+                        <line x1="12" y1="46" x2="88" y2="29" stroke="#a0522d" stroke-width="3.5" stroke-linecap="round" />
+                    </svg>
+                `
+            },
+            {
+                matchId: 9,
+                cityName: '苗栗',
+                productName: '木雕',
+                productSvg: `
+                    <svg viewBox="0 0 100 100" class="w-10 h-10 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
+                        <ellipse cx="50" cy="68" rx="35" ry="15" fill="#744210" stroke="#4a3728" stroke-width="3" />
+                        <ellipse cx="50" cy="68" rx="24" ry="10" fill="none" stroke="#975a16" stroke-width="2" />
+                        <ellipse cx="50" cy="68" rx="14" ry="6" fill="none" stroke="#d69e2e" stroke-width="1.5" />
+                        <path d="M45,18 L55,18 L52,45 L48,45 Z" fill="#cbd5e0" stroke="#4a5568" stroke-width="2" />
+                        <path d="M48,45 L52,45 L50,55 Z" fill="#718096" />
+                        <rect x="42" y="4" width="16" height="14" rx="2" fill="#975a16" />
+                        <path d="M22,52 Q25,48 27,54 Z" fill="#d69e2e" />
+                        <path d="M74,60 Q76,55 80,62 Z" fill="#975a16" />
+                    </svg>
+                `
+            }
+        ];
+
+        let deck = [];          
+        let flippedCards = [];  
+        let matchedPairsCount = 0; 
+        let movesCount = 0;     
+        let timerInterval = null;
+        let totalSeconds = 0;
+        let isGameStarted = false;
+        let isProcessing = false; 
+
+        // --- 3. DOM 節點獲取 ---
+        const gameBoard = document.getElementById('game-board');
+        const timerEl = document.getElementById('timer');
+        const movesEl = document.getElementById('moves');
+        const progressEl = document.getElementById('progress');
+        const btnRestart = document.getElementById('btn-restart');
+        const btnPlayAgain = document.getElementById('btn-play-again');
+        const btnSound = document.getElementById('btn-sound');
+        const soundOnIcon = document.getElementById('sound-on-icon');
+        const soundOffIcon = document.getElementById('sound-off-icon');
+
+        const victoryModal = document.getElementById('victory-modal');
+        const finalTimeEl = document.getElementById('final-time');
+        const finalMovesEl = document.getElementById('final-moves');
+        const newRecordBadge = document.getElementById('new-record-badge');
+        const bestTimeEl = document.getElementById('best-time');
+        const bestMovesEl = document.getElementById('best-moves');
+        const bestScoreEl = document.getElementById('best-score');
+
+        // --- 4. 遊戲初始化 ---
+        function initGame() {
+            flippedCards = [];
+            matchedPairsCount = 0;
+            movesCount = 0;
+            totalSeconds = 0;
+            isGameStarted = false;
+            isProcessing = false;
+            
+            clearInterval(timerInterval);
+            timerInterval = null;
+
+            timerEl.textContent = "00:00";
+            movesEl.textContent = "0";
+            progressEl.textContent = "0 / 10";
+
+            displayBestScore();
+
+            // 生成 20 張卡牌：10張地名文字卡 + 10張物產圖片卡
+            let cardsData = [];
+            TAIWAN_SPECIALTIES.forEach(item => {
+                // 地名文字卡
+                cardsData.push({
+                    matchId: item.matchId,
+                    type: 'city',
+                    content: item.cityName,
+                    isFlipped: false,
+                    isMatched: false
+                });
+                // 物產圖片卡
+                cardsData.push({
+                    matchId: item.matchId,
+                    type: 'product',
+                    content: item.productSvg,
+                    productLabel: item.productName,
+                    isFlipped: false,
+                    isMatched: false
+                });
+            });
+
+            // 打亂卡牌順序
+            deck = cardsData.sort(() => Math.random() - 0.5);
+
+            gameBoard.innerHTML = '';
+            deck.forEach((card, index) => {
+                const cardContainer = document.createElement('div');
+                cardContainer.className = 'perspective-1000 w-full h-full cursor-pointer card-click-area';
+                cardContainer.dataset.index = index;
+
+                // 根據卡牌類型設定不同的背面樣式
+                let backContentHtml = '';
+                if (card.type === 'city') {
+                    // 地名文字卡背面：復古書法質感風格
+                    backContentHtml = `
+                        <div class="card-back backface-hidden rotate-y-180 absolute inset-0 bg-gradient-to-br from-amber-50 to-orange-100 text-slate-800 rounded-2xl flex flex-col items-center justify-center border-4 border-amber-600 shadow-amber-500/10 shadow-inner select-none p-2">
+                            <span class="text-xs text-amber-800/60 font-black border-b border-amber-800/20 pb-0.5 mb-1 md:mb-2 tracking-widest">地名考</span>
+                            <span class="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-widest text-amber-900 drop-shadow-sm">${card.content}</span>
+                        </div>
+                    `;
+                } else {
+                    // 物產圖片卡背面：深色極簡現代風格
+                    backContentHtml = `
+                        <div class="card-back backface-hidden rotate-y-180 absolute inset-0 bg-slate-850 rounded-2xl flex flex-col items-center justify-center border-2 border-indigo-500 shadow-indigo-500/20 shadow-inner select-none p-2 bg-slate-900">
+                            <!-- 滿版的精緻 SVG 繪圖 -->
+                            <div class="flex-grow flex items-center justify-center w-full">
+                                ${card.content}
+                            </div>
+                            <span class="text-[10px] sm:text-xs md:text-sm font-black text-indigo-300 tracking-wider bg-indigo-950/80 px-2.5 py-0.5 rounded-full border border-indigo-800/40 mt-1 flex-shrink-0">${card.productLabel}</span>
+                        </div>
+                    `;
+                }
+
+                cardContainer.innerHTML = `
+                    <div class="card-inner preserve-3d w-full h-full relative transition-transform duration-500 ease-out rounded-2xl shadow-lg border border-slate-700/30">
+                        <!-- 卡牌正面 (有花紋的卡背) -->
+                        <div class="card-front backface-hidden absolute inset-0 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 rounded-2xl flex items-center justify-center border border-slate-700/40">
+                            <div class="w-8 h-8 md:w-14 md:h-14 rounded-full border border-indigo-500/20 flex items-center justify-center animate-pulse">
+                                <svg class="w-4 h-4 md:w-8 md:h-8 text-indigo-400/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.961 0 1.36 1.25.588 1.81l-3.97 2.88a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.88a1 1 0 00-1.176 0l-3.97 2.88c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118l-3.97-2.88c-.772-.56-.373-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <!-- 卡牌背面 (依屬性而定) -->
+                        ${backContentHtml}
+                    </div>
+                `;
+
+                cardContainer.addEventListener('click', () => handleCardClick(index, cardContainer));
+                gameBoard.appendChild(cardContainer);
+            });
+        }
+
+        // --- 5. 翻牌點擊邏輯 ---
+        function handleCardClick(index, element) {
+            if (isProcessing || deck[index].isFlipped || deck[index].isMatched) return;
+
+            if (!isGameStarted) {
+                startTimer();
+                isGameStarted = true;
+            }
+
+            deck[index].isFlipped = true;
+            flippedCards.push(index);
+            
+            const innerElement = element.querySelector('.card-inner');
+            innerElement.classList.add('rotate-y-180');
+            playSound('flip');
+
+            if (flippedCards.length === 2) {
+                movesCount++;
+                movesEl.textContent = movesCount;
+                checkMatch();
+            }
+        }
+
+        // --- 6. 配對檢查邏輯 (地名對應物產，以 matchId 檢查) ---
+        function checkMatch() {
+            isProcessing = true;
+            const [firstIdx, secondIdx] = flippedCards;
+            const card1 = deck[firstIdx];
+            const card2 = deck[secondIdx];
+
+            const cardElements = gameBoard.querySelectorAll('.perspective-1000');
+            const el1 = cardElements[firstIdx].querySelector('.card-inner');
+            const el2 = cardElements[secondIdx].querySelector('.card-inner');
+
+            if (card1.matchId === card2.matchId && card1.type !== card2.type) {
+                // 配對成功！(且類型相異，即一地名、一物產)
+                card1.isMatched = true;
+                card2.isMatched = true;
+                matchedPairsCount++;
+                
+                progressEl.textContent = `${matchedPairsCount} / 10`;
+
+                setTimeout(() => {
+                    el1.parentNode.classList.add('scale-105');
+                    el2.parentNode.classList.add('scale-105');
+                    
+                    el1.querySelector('.card-back').classList.add('border-emerald-500');
+                    el2.querySelector('.card-back').classList.add('border-emerald-500');
+
+                    playSound('match');
+
+                    setTimeout(() => {
+                        el1.parentNode.classList.remove('scale-105');
+                        el2.parentNode.classList.remove('scale-105');
+                        
+                        flippedCards = [];
+                        isProcessing = false;
+
+                        if (matchedPairsCount === 10) {
+                            endGame();
+                        }
+                    }, 200);
+                }, 300);
+
+            } else {
+                // 配對失敗：翻回去
+                setTimeout(() => {
+                    el1.parentNode.classList.add('animate-shake');
+                    el2.parentNode.classList.add('animate-shake');
+                    
+                    el1.querySelector('.card-back').classList.add('border-rose-500');
+                    el2.querySelector('.card-back').classList.add('border-rose-500');
+
+                    playSound('mismatch');
+
+                    setTimeout(() => {
+                        el1.classList.remove('rotate-y-180');
+                        el2.classList.remove('rotate-y-180');
+                        
+                        el1.querySelector('.card-back').classList.remove('border-rose-500');
+                        el2.querySelector('.card-back').classList.remove('border-rose-500');
+
+                        card1.isFlipped = false;
+                        card2.isFlipped = false;
+                        
+                        flippedCards = [];
+                        isProcessing = false;
+                    }, 500);
+                }, 600);
+            }
+        }
+
+        // --- 7. 計時器控制 ---
+        function startTimer() {
+            totalSeconds = 0;
+            timerInterval = setInterval(() => {
+                totalSeconds++;
+                timerEl.textContent = formatTime(totalSeconds);
+            }, 1000);
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // --- 8. 遊戲結束（通關且計算分數） ---
+        function endGame() {
+            clearInterval(timerInterval);
+            playSound('victory');
+            
+            // --- 新增：綜合分數計算與評級邏輯 ---
+            const baseScore = 10000;
+            const timePenalty = totalSeconds * 15; // 1秒扣15分
+            const movePenalty = movesCount * 100;   // 1步扣100分
+            const finalScore = Math.max(100, baseScore - timePenalty - movePenalty); // 保底100分
+
+            // 根據分數賦予評級
+            let rating = 'C';
+            let ratingClass = 'bg-slate-600 text-slate-100';
+            if (finalScore >= 8000) {
+                rating = 'S';
+                ratingClass = 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 animate-bounce font-black';
+            } else if (finalScore >= 6500) {
+                rating = 'A';
+                ratingClass = 'bg-purple-600 text-white font-bold';
+            } else if (finalScore >= 5000) {
+                rating = 'B';
+                ratingClass = 'bg-blue-600 text-white font-medium';
+            }
+
+            // 寫入畫面
+            finalTimeEl.textContent = formatTime(totalSeconds);
+            finalMovesEl.textContent = movesCount;
+            document.getElementById('final-score').textContent = finalScore;
+            
+            const ratingBadge = document.getElementById('final-rating');
+            ratingBadge.textContent = rating;
+            ratingBadge.className = `px-2.5 py-0.5 rounded-md font-black text-sm shadow-sm ${ratingClass} transition-all duration-300`;
+
+            // 保存紀錄 (檢查是否破紀錄，包含分數)
+            const isNewRecord = saveHighScore(totalSeconds, movesCount, finalScore);
+
+            if (isNewRecord) {
+                newRecordBadge.classList.remove('hidden');
+            } else {
+                newRecordBadge.classList.add('hidden');
+            }
+
+            startConfetti();
+
+            setTimeout(() => {
+                victoryModal.classList.remove('opacity-0', 'pointer-events-none');
+                victoryModal.querySelector('div').classList.remove('scale-90');
+            }, 500);
+        }
+
+        // --- 9. 最佳紀錄管理 (LocalStorage 整合分數) ---
+        function saveHighScore(time, moves, score) {
+            const bestTime = localStorage.getItem('best_time_sec');
+            const bestMoves = localStorage.getItem('best_moves');
+            const bestScore = localStorage.getItem('best_score');
+            let isNew = false;
+
+            if (!bestTime || time < parseInt(bestTime)) {
+                localStorage.setItem('best_time_sec', time);
+                isNew = true;
+            }
+            if (!bestMoves || moves < parseInt(bestMoves)) {
+                localStorage.setItem('best_moves', moves);
+                isNew = true;
+            }
+            if (!bestScore || score > parseInt(bestScore)) {
+                localStorage.setItem('best_score', score);
+                isNew = true;
+            }
+
+            displayBestScore();
+            return isNew;
+        }
+
+        function displayBestScore() {
+            const bTime = localStorage.getItem('best_time_sec');
+            const bMoves = localStorage.getItem('best_moves');
+            const bScore = localStorage.getItem('best_score');
+
+            bestTimeEl.textContent = bTime ? formatTime(parseInt(bTime)) : "--:--";
+            bestMovesEl.textContent = bMoves ? bMoves : "--";
+            bestScoreEl.textContent = bScore ? bScore : "--";
+        }
+
+        // --- 10. 繽紛碎紙慶祝動畫 (Canvas) ---
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        let confettiArray = [];
+        let confettiInterval = null;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        class Confetti {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * -100 - 20;
+                this.size = Math.random() * 8 + 4;
+                this.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+                this.speedX = Math.random() * 4 - 2;
+                this.speedY = Math.random() * 5 + 3;
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = Math.random() * 5 + 2;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.rotation += this.rotationSpeed;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        function startConfetti() {
+            resizeCanvas();
+            confettiArray = [];
+            for (let i = 0; i < 150; i++) {
+                confettiArray.push(new Confetti());
+            }
+
+            if (confettiInterval) cancelAnimationFrame(confettiInterval);
+
+            function animateConfetti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                confettiArray.forEach((c, index) => {
+                    c.update();
+                    c.draw();
+                    if (c.y > canvas.height) {
+                        confettiArray[index] = new Confetti();
+                    }
+                });
+                confettiInterval = requestAnimationFrame(animateConfetti);
+            }
+            animateConfetti();
+
+            setTimeout(() => {
+                cancelAnimationFrame(confettiInterval);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }, 6000);
+        }
+
+        // --- 11. 按鈕與功能事件綁定 ---
+        btnRestart.addEventListener('click', initGame);
+        
+        btnPlayAgain.addEventListener('click', () => {
+            victoryModal.classList.add('opacity-0', 'pointer-events-none');
+            victoryModal.querySelector('div').classList.add('scale-90');
+            initGame();
+        });
+
+        btnSound.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundOnIcon.classList.remove('hidden');
+                soundOffIcon.classList.add('hidden');
+            } else {
+                soundOnIcon.classList.add('hidden');
+                soundOffIcon.classList.remove('hidden');
+            }
+        });
+
+        victoryModal.addEventListener('click', (e) => {
+            if (e.target === victoryModal) {
+                victoryModal.classList.add('opacity-0', 'pointer-events-none');
+                victoryModal.querySelector('div').classList.add('scale-90');
+                initGame();
+            }
+        });
+
+        // --- 12. 動態 CSS 動畫注入 ---
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                20%, 60% { transform: translateX(-4px); }
+                40%, 80% { transform: translateX(4px); }
+            }
+            .animate-shake {
+                animation: shake 0.4s ease-in-out;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-fade-in {
+                animation: fadeIn 0.8s ease-out;
+            }
+        `;
+        document.head.appendChild(style);
+
+        window.onload = () => {
+            initGame();
+        };
+    </script>
+</body>
+</html>
