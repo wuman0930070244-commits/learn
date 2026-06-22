@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>成語森林大冒險：打地鼠複習戰 (第七課~第十二課)</title>
+    <!-- 引入 Tailwind CSS 進行精美 UI 排版 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: 圓潤可愛的字型，適合國小生與大字體展示 -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome 圖標 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Animate.css 動畫庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <!-- Tone.js 用於生成高品質遊戲音效 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Canvas Confetti 煙火特效 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: #022c22;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 19:10 電子白板黃金比例鎖定容器 */
+        .whiteboard-canvas {
+            width: 95vw;
+            height: 50vw; /* 完美符合 19:10 比例 */
+            max-width: 171vh; /* 防止超寬螢幕高度溢出 */
+            max-height: 90vh; /* 防止超高螢幕寬度溢出 */
+            aspect-ratio: 19 / 10;
+            background: linear-gradient(180deg, #065f46 0%, #022c22 100%);
+            border: 12px solid #78350f; /* 質感厚木外框，適合電子白板 */
+            border-radius: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), inset 0 4px 12px rgba(255,255,255,0.15);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* 槌子游標動畫 (適合電子白板，滑鼠指上去時也有槌子感) */
+        .game-cursor {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 40 40"><text y="30" font-size="34">🔨</text></svg>') 10 30, auto;
+        }
+        .game-cursor:active {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 40 40"><g transform="rotate(-30 20 20)"><text y="30" font-size="34">🔨</text></g></svg>') 10 30, auto;
+        }
+
+        /* 加高型地鼠洞，內部實現完全隱藏 */
+        .hole {
+            position: relative;
+            overflow: hidden; /* 確保下沉時地鼠完全消失 */
+            border-radius: 2rem;
+        }
+
+        /* 地鼠本體：改為 Flexbox 垂直對齊，看板置頂，動作更穩定 */
+        .mole {
+            transition: bottom 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.25);
+            will-change: bottom;
+        }
+        
+        /* 洞底陰影背景 */
+        .hole-depth {
+            background: rgba(0, 0, 0, 0.65);
+            border-radius: 50%;
+        }
+
+        /* 泥土堆：覆蓋在地鼠下半身的遮罩 */
+        .dirt-pile {
+            background: radial-gradient(ellipse at center, #854d0e 0%, #451a03 100%);
+            border-top-left-radius: 50% 30px;
+            border-top-right-radius: 50% 30px;
+            border-bottom-left-radius: 50% 15px;
+            border-bottom-right-radius: 50% 15px;
+            box-shadow: inset 0 6px 12px rgba(0,0,0,0.6), 0 4px 6px rgba(0,0,0,0.4);
+        }
+
+        /* 巨無霸立體成語看板 - 動態計算字體大小，保證在投影大螢幕上清晰無比 */
+        .idiom-tag {
+            font-size: clamp(1.2rem, 2vw, 2.3rem) !important;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.45), inset 0 2px 4px rgba(255,255,255,0.8);
+            border: 5px solid #78350f; /* 粗邊框增加辨識度 */
+        }
+
+        /* 浮動分數特效 */
+        .score-pop {
+            position: absolute;
+            pointer-events: none;
+            z-index: 100;
+            animation: floatUp 0.8s ease-out forwards;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.8); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-130px) scale(1.5); opacity: 0; }
+        }
+
+        /* 課堂專用超巨大題目字型 - 確保教室後排學生清晰可見 */
+        #question-text {
+            font-size: clamp(1.8rem, 2.6vw, 3.6rem) !important;
+            line-height: 1.4 !important;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* 讓題目中的挖空與錯誤反饋框字體和大小比例完美配合 */
+        #question-text span {
+            font-size: 0.85em !important;
+            border-bottom-width: 6px !important;
+            padding: 0.1rem 1rem !important;
+            display: inline-block;
+            vertical-align: middle;
+            margin: 0 0.3rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="whiteboard-canvas">
+
+        <!-- 頂部資訊面板：緊湊高對比度設計 -->
+        <header class="w-full bg-white/95 backdrop-blur rounded-2xl p-3 shadow-lg border-4 border-emerald-500 flex justify-between items-center z-10">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl md:text-4xl">🦫</span>
+                <div>
+                    <h1 class="text-xl md:text-2xl lg:text-3xl font-black text-emerald-800 tracking-wide">成語森林大冒險</h1>
+                    <p class="text-xs md:text-sm text-emerald-600 font-bold">第七課~第十二課（25 題綜合複習）</p>
+                </div>
+            </div>
+
+            <!-- 右側數據看版：大字體，利於後排學生閱讀 -->
+            <div class="flex items-center gap-4">
+                <!-- 綜合得分 -->
+                <div class="bg-amber-100 border-2 border-amber-500 rounded-xl px-4 py-0.5 text-center min-w-[120px]">
+                    <span class="text-xs text-amber-700 font-black block">綜合得分</span>
+                    <span id="score-text" class="text-xl md:text-2xl lg:text-3xl font-black text-amber-800">0</span>
+                </div>
+                <!-- 答錯次數 -->
+                <div class="bg-rose-100 border-2 border-rose-400 rounded-xl px-4 py-0.5 text-center min-w-[100px]">
+                    <span class="text-xs text-rose-600 font-black block">打錯地鼠</span>
+                    <span id="wrong-text" class="text-xl md:text-2xl lg:text-3xl font-black text-rose-700">0 次</span>
+                </div>
+                <!-- 已用時間 -->
+                <div class="bg-sky-100 border-2 border-sky-500 rounded-xl px-4 py-0.5 text-center min-w-[110px]">
+                    <span class="text-xs text-sky-700 font-black block">已用時間</span>
+                    <span id="timer-text" class="text-xl md:text-2xl lg:text-3xl font-black text-sky-800">00:00</span>
+                </div>
+                <!-- 音效與功能按鈕 -->
+                <div class="flex gap-2">
+                    <button id="sound-btn" class="w-12 h-12 bg-emerald-500 hover:bg-emerald-600 border-2 border-emerald-700 rounded-xl text-white flex items-center justify-center shadow-md active:scale-95 text-xl" title="音效開關">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </button>
+                    <button id="pause-btn" class="w-12 h-12 bg-amber-500 hover:bg-amber-600 border-2 border-amber-700 rounded-xl text-white flex items-center justify-center shadow-md active:scale-95 text-xl" title="暫停遊戲">
+                        <i class="fa-solid fa-pause"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 題目情境卡片 (電子白板巨大木牌風格) -->
+        <section class="w-full bg-amber-50/95 border-6 border-amber-800 rounded-2xl p-4 md:p-5 shadow-xl relative animate__animated animate__zoomIn">
+            <!-- 木製裝飾吊繩 -->
+            <div class="absolute -top-4 left-1/4 w-3.5 h-6 bg-amber-900 rounded-full hidden md:block"></div>
+            <div class="absolute -top-4 right-1/4 w-3.5 h-6 bg-amber-900 rounded-full hidden md:block"></div>
+            
+            <div class="text-center">
+                <span class="inline-block bg-amber-700 text-amber-50 text-sm md:text-base px-5 py-1 rounded-full font-bold mb-1.5 uppercase tracking-widest shadow">請找出適合挖空處的正確成語！</span>
+                <!-- 四年級造句：字體加大確保遠視度（改由 CSS clamp 與百分比控制） -->
+                <p id="question-text" class="font-black text-amber-950 leading-normal tracking-wide px-4">
+                    載入中... 請稍候...
+                </p>
+            </div>
+        </section>
+
+        <!-- 3x2 遊戲地鼠欄位：完美適應 19:10 空間，預防垂直溢出 -->
+        <section id="game-field" class="game-cursor w-full grid grid-cols-3 gap-y-4 gap-x-6 py-4 px-6 bg-emerald-900/50 border-4 border-emerald-800/40 rounded-3xl shadow-inner flex-grow my-3 relative items-center">
+            
+            <!-- 泥土洞 1 -->
+            <div class="hole w-full h-36 md:h-44 lg:h-52 flex justify-center items-end" data-index="0">
+                <div class="hole-depth w-11/12 h-1/5 absolute bottom-0"></div>
+                <!-- 地鼠本體：重構為單一自適應 Flexbox，確保成語絕對不被遮擋 -->
+                <div class="mole w-[85%] h-[85%] absolute bottom-[-110%] flex flex-col items-center justify-end cursor-pointer z-20">
+                    <div class="idiom-tag bg-amber-50 border-4 border-amber-900 shadow-xl rounded-2xl px-5 py-2 font-black text-amber-950 whitespace-nowrap z-50">載入中</div>
+                    <div class="w-3.5 h-6 bg-amber-800 border-2 border-amber-950 -mt-1.5 z-40"></div>
+                    <svg class="w-[70%] h-[60%] pointer-events-none z-30" viewBox="0 0 100 100">
+                        <ellipse cx="50" cy="55" rx="35" ry="32" fill="#92400e"/>
+                        <circle cx="50" cy="40" r="28" fill="#78350f"/>
+                        <ellipse cx="50" cy="45" rx="16" ry="12" fill="#fbcfe8"/>
+                        <circle cx="50" cy="42" r="5" fill="#f43f5e"/>
+                        <circle cx="40" cy="32" r="4" fill="#000"/>
+                        <circle cx="60" cy="32" r="4" fill="#000"/>
+                        <ellipse cx="40" cy="30" rx="2" ry="1" fill="#fff"/>
+                        <ellipse cx="60" cy="30" rx="2" ry="1" fill="#fff"/>
+                        <polygon points="46,47 48,51 50,47" fill="#fff"/>
+                        <polygon points="50,47 52,51 54,47" fill="#fff"/>
+                        <path d="M 38 18 Q 36 8 44 12 Q 46 16 42 20" fill="#78350f"/>
+                        <path d="M 62 18 Q 64 8 56 12 Q 54 16 58 20" fill="#78350f"/>
+                    </svg>
+                </div>
+                <!-- 泥土堆 (前方遮罩)：加入 pointer-events-none 確保點擊穿透 -->
+                <div class="dirt-pile w-full h-[28%] absolute bottom-0 pointer-events-none z-30"></div>
+            </div>
+
+            <!-- 泥土洞 2 -->
+            <div class="hole w-full h-36 md:h-44 lg:h-52 flex justify-center items-end" data-index="1">
+                <div class="hole-depth w-11/12 h-1/5 absolute bottom-0"></div>
+                <div class="mole w-[85%] h-[85%] absolute bottom-[-110%] flex flex-col items-center justify-end cursor-pointer z-20">
+                    <div class="idiom-tag bg-amber-50 border-4 border-amber-900 shadow-xl rounded-2xl px-5 py-2 font-black text-amber-950 whitespace-nowrap z-50">載入中</div>
+                    <div class="w-3.5 h-6 bg-amber-800 border-2 border-amber-950 -mt-1.5 z-40"></div>
+                    <svg class="w-[70%] h-[60%] pointer-events-none z-30" viewBox="0 0 100 100">
+                        <ellipse cx="50" cy="55" rx="35" ry="32" fill="#92400e"/><circle cx="50" cy="40" r="28" fill="#78350f"/><ellipse cx="50" cy="45" rx="16" ry="12" fill="#fbcfe8"/><circle cx="50" cy="42" r="5" fill="#f43f5e"/><circle cx="40" cy="32" r="4" fill="#000"/><circle cx="60" cy="32" r="4" fill="#000"/><ellipse cx="40" cy="30" rx="2" ry="1" fill="#fff"/><ellipse cx="60" cy="30" rx="2" ry="1" fill="#fff"/><polygon points="46,47 48,51 50,47" fill="#fff"/><polygon points="50,47 52,51 54,47" fill="#fff"/><path d="M 38 18 Q 36 8 44 12 Q 46 16 42 20" fill="#78350f"/><path d="M 62 18 Q 64 8 56 12 Q 54 16 58 20" fill="#78350f"/>
+                    </svg>
+                </div>
+                <div class="dirt-pile w-full h-[28%] absolute bottom-0 pointer-events-none z-30"></div>
+            </div>
+
+            <!-- 泥土洞 3 -->
+            <div class="hole w-full h-36 md:h-44 lg:h-52 flex justify-center items-end" data-index="2">
+                <div class="hole-depth w-11/12 h-1/5 absolute bottom-0"></div>
+                <div class="mole w-[85%] h-[85%] absolute bottom-[-110%] flex flex-col items-center justify-end cursor-pointer z-20">
+                    <div class="idiom-tag bg-amber-50 border-4 border-amber-900 shadow-xl rounded-2xl px-5 py-2 font-black text-amber-950 whitespace-nowrap z-50">載入中</div>
+                    <div class="w-3.5 h-6 bg-amber-800 border-2 border-amber-950 -mt-1.5 z-40"></div>
+                    <svg class="w-[70%] h-[60%] pointer-events-none z-30" viewBox="0 0 100 100">
+                        <ellipse cx="50" cy="55" rx="35" ry="32" fill="#92400e"/><circle cx="50" cy="40" r="28" fill="#78350f"/><ellipse cx="50" cy="45" rx="16" ry="12" fill="#fbcfe8"/><circle cx="50" cy="42" r="5" fill="#f43f5e"/><circle cx="40" cy="32" r="4" fill="#000"/><circle cx="60" cy="32" r="4" fill="#000"/><ellipse cx="40" cy="30" rx="2" ry="1" fill="#fff"/><ellipse cx="60" cy="30" rx="2" ry="1" fill="#fff"/><polygon points="46,47 48,51 50,47" fill="#fff"/><polygon points="50,47 52,51 54,47" fill="#fff"/><path d="M 38 18 Q 36 8 44 12 Q 46 16 42 20" fill="#78350f"/><path d="M 62 18 Q 64 8 56 12 Q 54 16 58 20" fill="#78350f"/>
+                    </svg>
+                </div>
+                <div class="dirt-pile w-full h-[28%] absolute bottom-0 pointer-events-none z-30"></div>
+            </div>
+
+            <!-- 泥土洞 4 -->
+            <div class="hole w-full h-36 md:h-44 lg:h-52 flex justify-center items-end" data-index="3">
+                <div class="hole-depth w-11/12 h-1/5 absolute bottom-0"></div>
+                <div class="mole w-[85%] h-[85%] absolute bottom-[-110%] flex flex-col items-center justify-end cursor-pointer z-20">
+                    <div class="idiom-tag bg-amber-50 border-4 border-amber-900 shadow-xl rounded-2xl px-5 py-2 font-black text-amber-950 whitespace-nowrap z-50">載入中</div>
+                    <div class="w-3.5 h-6 bg-amber-800 border-2 border-amber-950 -mt-1.5 z-40"></div>
+                    <svg class="w-[70%] h-[60%] pointer-events-none z-30" viewBox="0 0 100 100">
+                        <ellipse cx="50" cy="55" rx="35" ry="32" fill="#92400e"/><circle cx="50" cy="40" r="28" fill="#78350f"/><ellipse cx="50" cy="45" rx="16" ry="12" fill="#fbcfe8"/><circle cx="50" cy="42" r="5" fill="#f43f5e"/><circle cx="40" cy="32" r="4" fill="#000"/><circle cx="60" cy="32" r="4" fill="#000"/><ellipse cx="40" cy="30" rx="2" ry="1" fill="#fff"/><ellipse cx="60" cy="30" rx="2" ry="1" fill="#fff"/><polygon points="46,47 48,51 50,47" fill="#fff"/><polygon points="50,47 52,51 54,47" fill="#fff"/><path d="M 38 18 Q 36 8 44 12 Q 46 16 42 20" fill="#78350f"/><path d="M 62 18 Q 64 8 56 12 Q 54 16 58 20" fill="#78350f"/>
+                    </svg>
+                </div>
+                <div class="dirt-pile w-full h-[28%] absolute bottom-0 pointer-events-none z-30"></div>
+            </div>
+
+            <!-- 泥土洞 5 -->
+            <div class="hole w-full h-36 md:h-44 lg:h-52 flex justify-center items-end" data-index="4">
+                <div class="hole-depth w-11/12 h-1/5 absolute bottom-0"></div>
+                <div class="mole w-[85%] h-[85%] absolute bottom-[-110%] flex flex-col items-center justify-end cursor-pointer z-20">
+                    <div class="idiom-tag bg-amber-50 border-4 border-amber-900 shadow-xl rounded-2xl px-5 py-2 font-black text-amber-950 whitespace-nowrap z-50">載入中</div>
+                    <div class="w-3.5 h-6 bg-amber-800 border-2 border-amber-950 -mt-1.5 z-40"></div>
+                    <svg class="w-[70%] h-[60%] pointer-events-none z-30" viewBox="0 0 100 100">
+                        <ellipse cx="50" cy="55" rx="35" ry="32" fill="#92400e"/><circle cx="50" cy="40" r="28" fill="#78350f"/><ellipse cx="50" cy="45" rx="16" ry="12" fill="#fbcfe8"/><circle cx="50" cy="42" r="5" fill="#f43f5e"/><circle cx="40" cy="32" r="4" fill="#000"/><circle cx="60" cy="32" r="4" fill="#000"/><ellipse cx="40" cy="30" rx="2" ry="1" fill="#fff"/><ellipse cx="60" cy="30" rx="2" ry="1" fill="#fff"/><polygon points="46,47 48,51 50,47" fill="#fff"/><polygon points="50,47 52,51 54,47" fill="#fff"/><path d="M 38 18 Q 36 8 44 12 Q 46 16 42 20" fill="#78350f"/><path d="M 62 18 Q 64 8 56 12 Q 54 16 58 20" fill="#78350f"/>
+                    </svg>
+                </div>
+                <div class="dirt-pile w-full h-[28%] absolute bottom-0 pointer-events-none z-30"></div>
+            </div>
+
+            <!-- 泥土洞 6 -->
+            <div class="hole w-full h-36 md:h-44 lg:h-52 flex justify-center items-end" data-index="5">
+                <div class="hole-depth w-11/12 h-1/5 absolute bottom-0"></div>
+                <div class="mole w-[85%] h-[85%] absolute bottom-[-110%] flex flex-col items-center justify-end cursor-pointer z-20">
+                    <div class="idiom-tag bg-amber-50 border-4 border-amber-900 shadow-xl rounded-2xl px-5 py-2 font-black text-amber-950 whitespace-nowrap z-50">載入中</div>
+                    <div class="w-3.5 h-6 bg-amber-800 border-2 border-amber-950 -mt-1.5 z-40"></div>
+                    <svg class="w-[70%] h-[60%] pointer-events-none z-30" viewBox="0 0 100 100">
+                        <ellipse cx="50" cy="55" rx="35" ry="32" fill="#92400e"/><circle cx="50" cy="40" r="28" fill="#78350f"/><ellipse cx="50" cy="45" rx="16" ry="12" fill="#fbcfe8"/><circle cx="50" cy="42" r="5" fill="#f43f5e"/><circle cx="40" cy="32" r="4" fill="#000"/><circle cx="60" cy="32" r="4" fill="#000"/><ellipse cx="40" cy="30" rx="2" ry="1" fill="#fff"/><ellipse cx="60" cy="30" rx="2" ry="1" fill="#fff"/><polygon points="46,47 48,51 50,47" fill="#fff"/><polygon points="50,47 52,51 54,47" fill="#fff"/><path d="M 38 18 Q 36 8 44 12 Q 46 16 42 20" fill="#78350f"/><path d="M 62 18 Q 64 8 56 12 Q 54 16 58 20" fill="#78350f"/>
+                    </svg>
+                </div>
+                <div class="dirt-pile w-full h-[28%] absolute bottom-0 pointer-events-none z-30"></div>
+            </div>
+
+        </section>
+
+        <!-- 底部進度列：極簡高彩度，不遮擋畫布 -->
+        <footer class="w-full bg-emerald-950/80 text-emerald-100 rounded-xl p-2 md:p-3 flex justify-between items-center gap-4 z-10 border border-emerald-800">
+            <div class="w-2/3">
+                <div class="flex justify-between text-xs md:text-sm font-bold mb-0.5">
+                    <span>🌲 森林冒險進度</span>
+                    <span id="progress-text">已答對: 0 / 25 題</span>
+                </div>
+                <div class="w-full bg-emerald-900 h-3 rounded-full overflow-hidden border border-emerald-700">
+                    <div id="progress-bar" class="bg-gradient-to-r from-yellow-400 to-amber-500 h-full w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+            <div class="text-[10px] md:text-xs font-bold text-right text-emerald-300 flex-grow">
+                <p><i class="fa-solid fa-gamepad mr-1"></i> 打錯地鼠扣 250 分！每過一秒扣 3 分。</p>
+                <p><i class="fa-solid fa-star mr-1"></i> 挑戰以最高準確率與敏捷度，拿下 S 級評價吧！</p>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- 彈窗1: 開始遊戲畫面 -->
+    <div id="start-modal" class="fixed inset-0 bg-slate-900/85 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-[2.5rem] border-8 border-emerald-600 p-6 md:p-8 max-w-xl w-full text-center shadow-2xl animate__animated animate__jackInTheBox">
+            <div class="text-7xl mb-3">🦫🪵🔨</div>
+            <h2 class="text-3xl md:text-4xl font-black text-emerald-800 mb-2">成語森林大冒險</h2>
+            <p class="text-emerald-600 font-black text-base md:text-lg mb-6">第七課至第十二課 (25題終極挑戰)</p>
+            
+            <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 md:p-5 text-left text-sm md:text-base text-slate-700 leading-relaxed mb-6">
+                <p class="font-black text-amber-900 mb-2 text-lg"><i class="fa-solid fa-circle-info mr-2"></i>電子白板與平板玩法說明：</p>
+                <ol class="list-decimal list-inside space-y-2 font-medium">
+                    <li>細心觀看上方木板懸掛的<b>「生活化句子（挖空）」</b>。</li>
+                    <li>找出適合該空欄處的正確成語。</li>
+                    <li>當地鼠帶著該成語木牌探出頭來，<b>快速用手指或白板筆點擊它</b>！</li>
+                    <li><b>無倒數時間限制！</b> 看清楚再打，答對率越高，得分越高！</li>
+                </ol>
+            </div>
+            
+            <button id="start-game-btn" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black text-xl md:text-2xl rounded-2xl shadow-lg hover:from-emerald-600 hover:to-teal-600 border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 transition-all">
+                <i class="fa-solid fa-play mr-2"></i> 開始冒險！
+            </button>
+        </div>
+    </div>
+
+    <!-- 彈窗2: 遊戲結束 / 結算畫面 -->
+    <div id="gameover-modal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-[2.5rem] border-8 border-amber-800 p-6 md:p-8 max-w-2xl w-full text-center shadow-2xl relative">
+            <div id="result-emoji" class="text-8xl mb-2 animate__animated animate__bounceIn">🏆</div>
+            <h2 id="result-title" class="text-3xl md:text-4xl font-black text-amber-900 mb-1">冒險結束！</h2>
+            <p id="result-subtitle" class="text-amber-600 font-bold text-lg mb-4">四年級成語複習完畢！</p>
+
+            <!-- 綜合評價等級 (S, A, B, C) -->
+            <div class="mb-5 flex flex-col items-center justify-center bg-gradient-to-b from-amber-50 to-amber-100 rounded-2xl p-4 border-4 border-amber-400">
+                <span class="text-xs md:text-sm font-bold text-amber-700">課堂冒險等級評定</span>
+                <span id="final-rating" class="text-7xl font-black text-red-500 tracking-wider animate-pulse my-1">S</span>
+                <span id="final-score-eval" class="text-sm text-amber-900 font-black">卓越卓越！</span>
+            </div>
+
+            <div class="grid grid-cols-4 gap-3 mb-6">
+                <div class="bg-amber-50 border-2 border-amber-200 rounded-xl p-2.5">
+                    <span class="text-[10px] md:text-xs font-bold text-amber-700 block">綜合得分</span>
+                    <span id="final-score" class="text-xl md:text-2xl font-black text-amber-900">0</span>
+                </div>
+                <div class="bg-sky-50 border-2 border-sky-200 rounded-xl p-2.5">
+                    <span class="text-[10px] md:text-xs font-bold text-sky-700 block">總計用時</span>
+                    <span id="final-time" class="text-xl md:text-2xl font-black text-sky-900">0秒</span>
+                </div>
+                <div class="bg-rose-50 border-2 border-rose-200 rounded-xl p-2.5">
+                    <span class="text-[10px] md:text-xs font-bold text-rose-700 block">打錯地鼠</span>
+                    <span id="final-wrong" class="text-xl md:text-2xl font-black text-rose-900">0次</span>
+                </div>
+                <div class="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-2.5">
+                    <span class="text-[10px] md:text-xs font-bold text-emerald-700 block">精準命中率</span>
+                    <span id="final-accuracy" class="text-xl md:text-2xl font-black text-emerald-900">0%</span>
+                </div>
+            </div>
+
+            <button id="restart-game-btn" class="w-full py-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-black text-xl rounded-2xl shadow-md hover:from-amber-600 hover:to-yellow-600 border-b-4 border-amber-700 active:border-b-0 active:translate-y-1 transition-all">
+                <i class="fa-solid fa-rotate-left mr-2"></i> 再次挑戰（重新洗牌）
+            </button>
+        </div>
+    </div>
+
+    <!-- 彈窗3: 暫停畫面 -->
+    <div id="pause-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-3xl border-8 border-amber-600 p-6 max-w-sm w-full text-center shadow-2xl">
+            <div class="text-5xl mb-4">⏸️</div>
+            <h2 class="text-2xl font-black text-slate-800 mb-4">森林冒險暫停中</h2>
+            <button id="resume-btn" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-lg rounded-xl mb-3 shadow">
+                <i class="fa-solid fa-play mr-2"></i> 繼續遊戲
+            </button>
+            <button id="quit-btn" class="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base rounded-xl">
+                <i class="fa-solid fa-arrow-right-from-bracket mr-2"></i> 結束挑戰
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 題庫資料：完整收錄第七課至第十二課全部 25 個成語
+        const IDIOM_DATABASE = [
+            // 第七課 (5題)
+            { idiom: "束手無策", lesson: 7, sentence: "面對這道超級困難的數學挑戰題，全班討論了半天依然（　　）。" },
+            { idiom: "各自為政", lesson: 7, sentence: "大隊接力需要極佳的默契，如果每個人都（　　），就很難拿到第一名。" },
+            { idiom: "負重致遠", lesson: 7, sentence: "大水牛每天默默在田裡拉犁耕作，展現了（　　）的驚人耐力。" },
+            { idiom: "利令智昏", lesson: 7, sentence: "我們千萬不能因為一時（　　）去貪小便宜，以免落入詐騙陷阱。" },
+            { idiom: "杞人憂天", lesson: 7, sentence: "氣象局都說今天晴空萬里了，你還一直擔心會刮颱風，真是（　　）。" },
+            // 第八課 (4題)
+            { idiom: "先發制人", lesson: 8, sentence: "躲避球比賽一開始，我們班就（　　）發動猛烈進攻，讓對手手忙腳亂。" },
+            { idiom: "養精蓄銳", lesson: 8, sentence: "明天就是期待已久的運動會，今晚一定要早點睡，好好（　　）。" },
+            { idiom: "嬌生慣養", lesson: 8, sentence: "那隻小貓從小被主人（　　），連看到會動的玩具滑鼠都懶得伸手抓。" },
+            { idiom: "循循善誘", lesson: 8, sentence: "在王老師（　　）的引導下，原本害怕上台的妹妹終於敢主動發言了。" },
+            // 第九課 (4題)
+            { idiom: "出類拔萃", lesson: 9, sentence: "哥哥不僅成績名列前茅，在籃球隊也是全能好手，是個（　　）的全方位學生。" },
+            { idiom: "夢寐以求", lesson: 9, sentence: "這台精緻的天文望遠鏡，是我今年最想要、也是（　　）的生日禮物。" },
+            { idiom: "捷足先登", lesson: 9, sentence: "圖書館裡那本最新出的恐龍冒險漫畫，一放學就被別班同學（　　）借走了。" },
+            { idiom: "百折不撓", lesson: 9, sentence: "他憑著（　　）的科學家精神，反覆做了上百次實驗，終於成功發明了新玩具。" },
+            // 第十課 (4題)
+            { idiom: "秀外慧中", lesson: 10, sentence: "大家都很佩服我們這位（　　）的班長，她不僅待人親切，做事還很有條理。" },
+            { idiom: "事過境遷", lesson: 10, sentence: "雖然當初那場誤會已經（　　），但我們現在想起來還是會忍不住哈哈大笑。" },
+            { idiom: "知己知彼", lesson: 10, sentence: "在躲避球爭霸賽前，老師提醒我們要仔細觀察對手的強項，做到（　　）。" },
+            { idiom: "權宜之計", lesson: 10, sentence: "為了讓吵鬧的大家安靜下來，班長先答應講恐怖故事，這只是一個（　　）。" },
+            // 第十一課 (4題)
+            { idiom: "尋章摘句", lesson: 11, sentence: "寫作文應該要表達自己的真實感想，不能只是（　　）、東拼西湊。" },
+            { idiom: "生靈塗炭", lesson: 11, sentence: "我們應該要珍惜現在的和平，因為戰爭只會帶來（　　）、無家可歸的悲劇。" },
+            { idiom: "集思廣益", lesson: 11, sentence: "班會課時，全班同學（　　），終於想出了最棒的園遊會攤位名稱。" },
+            { idiom: "改邪歸正", lesson: 11, sentence: "故事裡的大野狼聽完小紅帽的勸告，決定（　　），從此改吃素食麵包。" },
+            // 第十二課 (4題)
+            { idiom: "無妄之災", lesson: 12, sentence: "他好端端地在人行道慢跑，卻被一隻失控的飛盤砸中，真是遭遇了（　　）。" },
+            { idiom: "首鼠兩端", lesson: 12, sentence: "在選擇園遊會的分組時，他（　　）想了很久，最後兩組都額滿了。" },
+            { idiom: "一帆風順", lesson: 12, sentence: "祝學長學姐們在即將升上的五年級新生活裡，學業與交友都（　　）！" },
+            { idiom: "息事寧人", lesson: 12, sentence: "老師出面調解這場下課發生的誤會，希望能（　　），讓大家趕快回教室午休。" }
+        ];
+
+        let gameState = 'START';
+        let displayScore = 0;
+        let secondsElapsed = 0;
+        let currentQuestion = null;
+        let questionsSolved = 0; // 必須累計答對 25 題
+        let wrongAttempts = 0;
+        let speedMultiplier = 1.0; 
+        
+        let activeMoleTimer = null;
+        let gameTimerInterval = null;
+        let isSoundEnabled = true;
+
+        // 音效控制：使用 Tone.js 合成器
+        const synth = new Tone.Synth().toDestination();
+
+        function playCorrectSound() {
+            if (!isSoundEnabled) return;
+            try {
+                const now = Tone.now();
+                synth.triggerAttackRelease("E5", "16n", now);
+                synth.triggerAttackRelease("A5", "8n", now + 0.08);
+            } catch (e) {}
+        }
+
+        function playWrongSound() {
+            if (!isSoundEnabled) return;
+            try {
+                const now = Tone.now();
+                synth.triggerAttackRelease("C3", "8n", now);
+                synth.triggerAttackRelease("G2", "4n", now + 0.1);
+            } catch (e) {}
+        }
+
+        function playWhackSound() {
+            if (!isSoundEnabled) return;
+            try {
+                synth.triggerAttackRelease("G4", "16n");
+            } catch (e) {}
+        }
+
+        function playGameOverSound() {
+            if (!isSoundEnabled) return;
+            try {
+                const now = Tone.now();
+                synth.triggerAttackRelease("E3", "4n", now);
+                synth.triggerAttackRelease("A3", "4n", now + 0.2);
+                synth.triggerAttackRelease("C4", "2.5n", now + 0.4);
+            } catch (e) {}
+        }
+
+        // DOM 元素獲取
+        const startModal = document.getElementById('start-modal');
+        const gameoverModal = document.getElementById('gameover-modal');
+        const pauseModal = document.getElementById('pause-modal');
+        
+        const startGameBtn = document.getElementById('start-game-btn');
+        const restartGameBtn = document.getElementById('restart-game-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resumeBtn = document.getElementById('resume-btn');
+        const quitBtn = document.getElementById('quit-btn');
+        const soundBtn = document.getElementById('sound-btn');
+        
+        const scoreText = document.getElementById('score-text');
+        const wrongText = document.getElementById('wrong-text');
+        const timerText = document.getElementById('timer-text');
+        const questionText = document.getElementById('question-text');
+        const progressText = document.getElementById('progress-text');
+        const progressBar = document.getElementById('progress-bar');
+        
+        const gameField = document.getElementById('game-field');
+        const holes = document.querySelectorAll('.hole');
+
+        // 音量切換
+        soundBtn.addEventListener('click', () => {
+            isSoundEnabled = !isSoundEnabled;
+            soundBtn.innerHTML = isSoundEnabled 
+                ? '<i class="fa-solid fa-volume-high"></i>' 
+                : '<i class="fa-solid fa-volume-xmark"></i>';
+            if (isSoundEnabled) {
+                Tone.start();
+                playCorrectSound();
+            }
+        });
+
+        // 暫停與繼續
+        pauseBtn.addEventListener('click', () => {
+            if (gameState === 'PLAYING') pauseGame();
+        });
+        resumeBtn.addEventListener('click', resumeGame);
+        quitBtn.addEventListener('click', () => {
+            pauseModal.classList.add('hidden');
+            endGame();
+        });
+
+        // 開始與再挑戰
+        startGameBtn.addEventListener('click', () => {
+            Tone.start();
+            startModal.classList.add('hidden');
+            startGame();
+        });
+        restartGameBtn.addEventListener('click', () => {
+            gameoverModal.classList.add('hidden');
+            startGame();
+        });
+
+        function shuffleArray(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function startGame() {
+            gameState = 'PLAYING';
+            displayScore = 0;
+            secondsElapsed = 0;
+            questionsSolved = 0;
+            wrongAttempts = 0;
+            speedMultiplier = 1.0;
+
+            updateUI();
+            
+            // 隨機化題庫並確保 25 題都有可能被輪到
+            shuffleArray(IDIOM_DATABASE);
+            
+            loadNextQuestion();
+
+            // 啟動正向計時器 (每秒遞增時間，並計算實時分數扣除)
+            clearInterval(gameTimerInterval);
+            gameTimerInterval = setInterval(() => {
+                if (gameState === 'PLAYING') {
+                    secondsElapsed++;
+                    
+                    // 格式化顯示時間 MM:SS
+                    const min = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+                    const sec = String(secondsElapsed % 60).padStart(2, '0');
+                    timerText.innerText = `${min}:${sec}`;
+
+                    // 實時計算綜合分數：答對分 - 答錯分 - 時間流逝分 (每秒扣3分)
+                    calculateRunningScore();
+                }
+            }, 1000);
+        }
+
+        // 計算並跑馬燈更新當前綜合分數
+        function calculateRunningScore() {
+            const correctPoints = questionsSolved * 400;
+            const penaltyWrong = wrongAttempts * 250;
+            const penaltyTime = secondsElapsed * 3;
+            displayScore = Math.max(0, correctPoints - penaltyWrong - penaltyTime);
+            scoreText.innerText = displayScore;
+        }
+
+        function pauseGame() {
+            gameState = 'PAUSED';
+            pauseModal.classList.remove('hidden');
+            clearTimeout(activeMoleTimer);
+        }
+
+        function resumeGame() {
+            gameState = 'PLAYING';
+            pauseModal.classList.add('hidden');
+            spawnMolesWave();
+        }
+
+        function loadNextQuestion() {
+            // 每答對幾題就稍微加快地鼠起伏速度，增加遊戲挑戰性
+            speedMultiplier = 1.0 + (questionsSolved * 0.08);
+            
+            // 挑選當前題目（共 25 題）
+            if (questionsSolved < IDIOM_DATABASE.length) {
+                currentQuestion = IDIOM_DATABASE[questionsSolved];
+                questionText.innerHTML = currentQuestion.sentence.replace('（　　）', '<span class="bg-amber-200 border-b-4 border-amber-500 px-4 py-1 text-emerald-800 rounded-lg animate__animated animate__pulse animate__infinite">？　？　？　？</span>');
+                spawnMolesWave();
+            } else {
+                endGame();
+            }
+        }
+
+        function spawnMolesWave() {
+            if (gameState !== 'PLAYING') return;
+
+            // 所有地鼠先下沉
+            holes.forEach(hole => {
+                const mole = hole.querySelector('.mole');
+                mole.style.bottom = "-110%";
+                mole.dataset.correct = "false";
+            });
+
+            // 隨機挑出 4 個洞冒出地鼠，提高複習密度與干擾度
+            const holeIndices = [0, 1, 2, 3, 4, 5];
+            shuffleArray(holeIndices);
+            const selectedHoles = holeIndices.slice(0, 4);
+
+            // 把正確答案放進第一個洞
+            const correctHoleIndex = selectedHoles[0];
+            const incorrectHoles = selectedHoles.slice(1);
+
+            const correctHole = holes[correctHoleIndex];
+            const correctMole = correctHole.querySelector('.mole');
+            const correctTag = correctMole.querySelector('.idiom-tag');
+            correctTag.innerText = currentQuestion.idiom;
+            correctMole.dataset.correct = "true";
+            
+            // 挑選隨機的干擾成語，分派給另外三隻地鼠
+            const availableDistractors = IDIOM_DATABASE.filter(item => item.idiom !== currentQuestion.idiom);
+            shuffleArray(availableDistractors);
+
+            incorrectHoles.forEach((holeIndex, i) => {
+                const hole = holes[holeIndex];
+                const mole = hole.querySelector('.mole');
+                const tag = mole.querySelector('.idiom-tag');
+                tag.innerText = availableDistractors[i].idiom;
+                mole.dataset.correct = "false";
+            });
+
+            // 讓選定的四隻地鼠鑽出來（設置為安全 5% 底部高度，頂端絕對不被遮擋）
+            selectedHoles.forEach(holeIndex => {
+                const mole = holes[holeIndex].querySelector('.mole');
+                mole.style.bottom = "5%";
+                mole.classList.remove('animate__animated', 'animate__headShake');
+            });
+
+            // 地鼠停留時間（配合四年級學童，保持流暢且充裕的點擊視界）
+            const baseDuration = 4500; 
+            const moleDuration = Math.max(2200, baseDuration / speedMultiplier);
+
+            clearTimeout(activeMoleTimer);
+            activeMoleTimer = setTimeout(() => {
+                // 自動沉下去
+                selectedHoles.forEach(holeIndex => {
+                    holes[holeIndex].querySelector('.mole').style.bottom = "-110%";
+                });
+
+                // 緩衝 0.4 秒，隨即刷新下一波地鼠
+                setTimeout(() => {
+                    if (gameState === 'PLAYING') {
+                        spawnMolesWave();
+                    }
+                }, 400);
+
+            }, moleDuration);
+        }
+
+        // 綁定地鼠敲打點擊事件 (支援滑鼠點擊與觸控面板直接感應)
+        holes.forEach(hole => {
+            const mole = hole.querySelector('.mole');
+            mole.addEventListener('mousedown', (e) => {
+                handleWhack(e, mole);
+            });
+            mole.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // 防止雙擊縮放
+                handleWhack(e.touches[0], mole);
+            }, { passive: false });
+        });
+
+        function handleWhack(e, moleElement) {
+            if (gameState !== 'PLAYING') return;
+            if (moleElement.style.bottom !== "5%") return; // 沒上來點不到
+
+            const isCorrect = moleElement.dataset.correct === "true";
+            playWhackSound();
+
+            // 顯示浮動得分或扣分特效
+            createScoreFloatingText(e.clientX, e.clientY, isCorrect ? "＋400" : "－250", isCorrect);
+
+            if (isCorrect) {
+                playCorrectSound();
+                moleElement.style.bottom = "-110%"; // 答對立即下沉
+
+                triggerCorrectBits(moleElement);
+
+                questionsSolved++;
+                calculateRunningScore();
+                updateUI();
+
+                if (questionsSolved >= 25) {
+                    triggerVictoryConfetti();
+                    setTimeout(endGame, 1000);
+                } else {
+                    clearTimeout(activeMoleTimer);
+                    holes.forEach(h => h.querySelector('.mole').style.bottom = "-110%");
+                    setTimeout(loadNextQuestion, 400);
+                }
+
+            } else {
+                // 答錯：扣分、晃動、錯誤視覺引導
+                playWrongSound();
+                wrongAttempts++;
+                calculateRunningScore();
+                updateUI();
+
+                moleElement.classList.add('animate__animated', 'animate__headShake');
+
+                // 題目挖空處暫時變成紅底大叉字樣，提供即時教學反饋
+                questionText.innerHTML = currentQuestion.sentence.replace('（　　）', `<span class="bg-red-200 border-b-4 border-red-500 px-4 py-1 text-red-700 rounded-lg animate__animated animate__shakeX">${moleElement.querySelector('.idiom-tag').innerText} ❌</span>`);
+
+                setTimeout(() => {
+                    if (gameState === 'PLAYING') {
+                        questionText.innerHTML = currentQuestion.sentence.replace('（　　）', '<span class="bg-amber-200 border-b-4 border-amber-500 px-4 py-1 text-emerald-800 rounded-lg">？　？　？　？</span>');
+                    }
+                }, 1400);
+            }
+        }
+
+        // 浮動文字特效
+        function createScoreFloatingText(x, y, text, isCorrect) {
+            const el = document.createElement('div');
+            el.className = `score-pop text-3xl md:text-4xl font-black ${isCorrect ? 'text-yellow-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]' : 'text-red-500 drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)]'}`;
+            el.innerText = text;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            document.body.appendChild(el);
+
+            setTimeout(() => el.remove(), 800);
+        }
+
+        // 碎星粒子特效
+        function triggerCorrectBits(moleElement) {
+            const rect = moleElement.getBoundingClientRect();
+            confetti({
+                particleCount: 15,
+                angle: 90,
+                spread: 45,
+                origin: { 
+                    x: (rect.left + rect.width / 2) / window.innerWidth, 
+                    y: (rect.top + rect.height / 2) / window.innerHeight 
+                },
+                colors: ['#34d399', '#fbbf24', '#fef08a']
+            });
+        }
+
+        // 通關撒花煙火
+        function triggerVictoryConfetti() {
+            var duration = 4 * 1000;
+            var end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 6,
+                    angle: 60,
+                    spread: 60,
+                    origin: { x: 0 }
+                });
+                confetti({
+                    particleCount: 6,
+                    angle: 120,
+                    spread: 60,
+                    origin: { x: 1 }
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
+        // 更新頂部與底部 UI 數據
+        function updateUI() {
+            wrongText.innerText = `${wrongAttempts} 次`;
+            
+            const solvedPercent = Math.min(100, (questionsSolved / 25) * 100);
+            progressBar.style.width = `${solvedPercent}%`;
+            progressText.innerText = `已答對: ${questionsSolved} / 25 題`;
+        }
+
+        // 結束遊戲並計算等級評等
+        function endGame() {
+            gameState = 'GAMEOVER';
+            clearInterval(gameTimerInterval);
+            clearTimeout(activeMoleTimer);
+            playGameOverSound();
+
+            holes.forEach(hole => {
+                hole.querySelector('.mole').style.bottom = "-110%";
+            });
+
+            // 計算精準度
+            const totalActions = questionsSolved + wrongAttempts;
+            const accuracy = totalActions > 0 ? Math.round((questionsSolved / totalActions) * 100) : 0;
+
+            // 計算最終評等
+            let rating = "C";
+            let evalText = "";
+            let emoji = "🪵";
+            
+            if (displayScore >= 8500 && wrongAttempts <= 3) {
+                rating = "S";
+                evalText = "絕頂聰明！你就是成語森林的冒險大宗師！";
+                emoji = "👑";
+            } else if (displayScore >= 7000) {
+                rating = "A";
+                evalText = "卓越不凡！四年級班上的成語小達人！";
+                emoji = "🌟";
+            } else if (displayScore >= 4500) {
+                rating = "B";
+                evalText = "表現不俗！成語能力相當好，再接再厲！";
+                emoji = "🎖️";
+            } else {
+                rating = "C";
+                evalText = "小試身手！多玩幾次，成語記憶會更深刻喔！";
+                emoji = "📚";
+            }
+
+            // 更新結算畫面
+            document.getElementById('final-score').innerText = displayScore;
+            document.getElementById('final-time').innerText = `${secondsElapsed}秒`;
+            document.getElementById('final-wrong').innerText = `${wrongAttempts}次`;
+            document.getElementById('final-accuracy').innerText = `${accuracy}%`;
+            
+            document.getElementById('final-rating').innerText = rating;
+            document.getElementById('final-score-eval').innerText = evalText;
+            document.getElementById('result-emoji').innerText = emoji;
+
+            const ratingEl = document.getElementById('final-rating');
+            ratingEl.className = "text-7xl font-black tracking-wider animate-pulse my-1 ";
+            if (rating === "S") ratingEl.classList.add("text-amber-500");
+            else if (rating === "A") ratingEl.classList.add("text-emerald-500");
+            else if (rating === "B") ratingEl.classList.add("text-sky-500");
+            else ratingEl.classList.add("text-slate-500");
+
+            gameoverModal.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
