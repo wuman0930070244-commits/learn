@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學習遊戲傳送門</title>
+    <!-- 使用 Tailwind CSS 建立現代化美觀介面 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-xl w-full bg-white rounded-2xl shadow-xl p-8 text-center border border-slate-100">
+        <!-- 頁面標題 -->
+        <h1 class="text-3xl font-extrabold text-slate-800 mb-2 tracking-wide">
+            🎮 學習遊戲傳送門
+        </h1>
+        <p class="text-slate-500 mb-8">請選擇你想遊玩的學習遊戲項目：</p>
+
+        <!-- 遊戲連結選單 -->
+        <div class="space-y-4">
+            
+            <!-- 遊戲一：成語遊戲 -->
+            <a href="learn.html" class="block group p-5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl text-white shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-left">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-semibold bg-white/20 px-2.5 py-1 rounded-full uppercase tracking-wider">語文領域</span>
+                        <h2 class="text-xl font-bold mt-2">📚 成語遊戲</h2>
+                        <p class="text-emerald-100 text-sm mt-1">挑戰你的成語重組與填空能力！</p>
+                    </div>
+                    <!-- 箭頭圖示 -->
+                    <div class="bg-white/20 p-2 rounded-full group-hover:translate-x-1 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </div>
+            </a>
+
+            <!-- 遊戲二：社會課物產遊戲 -->
+            <a href="code_artifact.html" class="block group p-5 bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl text-white shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 text-left">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-semibold bg-white/20 px-2.5 py-1 rounded-full uppercase tracking-wider">社會領域</span>
+                        <h2 class="text-xl font-bold mt-2">🗺️ 社會課物產遊戲</h2>
+                        <p class="text-amber-100 text-sm mt-1">認識台灣與世界各地的特色物產！</p>
+                    </div>
+                    <!-- 箭頭圖示 -->
+                    <div class="bg-white/20 p-2 rounded-full group-hover:translate-x-1 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </div>
+            </a>
+
+        </div>
+
+        <!-- 頁尾說明 -->
+        <div class="mt-8 text-xs text-slate-400">
+            點擊上方卡片即可直接跳轉至對應的遊戲網頁。
+        </div>
+    </div>
+
+</body>
+</html>
